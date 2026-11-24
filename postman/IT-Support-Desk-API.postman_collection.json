@@ -1,0 +1,190 @@
+{
+  "info": {
+    "name": "IT Support Desk API (Activity 7)",
+    "description": "Tests from the ICT251 Activity 7 brief, Step 7. Set the collection variable baseUrl to http://localhost:3000 for local tests or to your Render URL for hosted tests. Run the requests in order (Run collection).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "newId", "value": "" },
+    { "key": "countBefore", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "01 GET / (API guide)",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('200 and HTML guide', () => { pm.response.to.have.status(200); pm.expect(pm.response.headers.get('Content-Type')).to.include('text/html'); });",
+        "pm.test('Guide shows student number and routes', () => { const t = pm.response.text(); pm.expect(t).to.include('202508518'); pm.expect(t).to.include('/api/records'); pm.expect(t).to.include('/health'); });"
+      ] } }],
+      "request": { "method": "GET", "url": "{{baseUrl}}/" }
+    },
+    {
+      "name": "02 GET /health",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('200 and database connected', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().database).to.eql('connected'); });"
+      ] } }],
+      "request": { "method": "GET", "url": "{{baseUrl}}/health" }
+    },
+    {
+      "name": "03 GET all records",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('200 and a JSON array', () => { pm.response.to.have.status(200); pm.expect(pm.response.json()).to.be.an('array'); });",
+        "pm.collectionVariables.set('countBefore', pm.response.json().length);"
+      ] } }],
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/records" }
+    },
+    {
+      "name": "04 POST valid record (client id ignored, spaces trimmed)",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "const r = pm.response.json();",
+        "pm.test('201 Created', () => pm.response.to.have.status(201));",
+        "pm.test('Has a new positive id (not the 999 we sent)', () => { pm.expect(r.id).to.be.a('number').above(0); pm.expect(r.id).to.not.eql(999); });",
+        "pm.test('Values saved and trimmed', () => { pm.expect(r.title).to.eql('Mouse not working in Lab A'); pm.expect(r.status).to.eql('Pending'); });",
+        "pm.collectionVariables.set('newId', r.id);"
+      ] } }],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/records",
+        "body": { "mode": "raw", "raw": "{\n  \"id\": 999,\n  \"title\": \"  Mouse not working in Lab A  \",\n  \"category\": \"Hardware\",\n  \"description\": \"The USB mouse on PC 12 does not move the pointer.\",\n  \"status\": \"Pending\"\n}" }
+      }
+    },
+    {
+      "name": "05 GET the new record by id",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('200 and the exact record created', () => { pm.response.to.have.status(200); const r = pm.response.json(); pm.expect(r.id).to.eql(Number(pm.collectionVariables.get('newId'))); pm.expect(r.title).to.eql('Mouse not working in Lab A'); });"
+      ] } }],
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/records/{{newId}}" }
+    },
+    {
+      "name": "06 PUT the same id (all four fields)",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "const r = pm.response.json();",
+        "pm.test('200, changed values, original id', () => { pm.response.to.have.status(200); pm.expect(r.id).to.eql(Number(pm.collectionVariables.get('newId'))); pm.expect(r.status).to.eql('Completed'); pm.expect(r.title).to.eql('Mouse replaced in Lab A'); });"
+      ] } }],
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/records/{{newId}}",
+        "body": { "mode": "raw", "raw": "{\n  \"title\": \"Mouse replaced in Lab A\",\n  \"category\": \"Hardware\",\n  \"description\": \"The faulty USB mouse on PC 12 was replaced with a new one.\",\n  \"status\": \"Completed\"\n}" }
+      }
+    },
+    {
+      "name": "07 DELETE the same id",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('200 and deletion message', () => { pm.response.to.have.status(200); pm.expect(pm.response.json()).to.eql({ message: 'Record deleted.' }); });"
+      ] } }],
+      "request": { "method": "DELETE", "url": "{{baseUrl}}/api/records/{{newId}}" }
+    },
+    {
+      "name": "08 GET the deleted id gives 404",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('404 with JSON message', () => { pm.response.to.have.status(404); pm.expect(pm.response.json().message).to.be.a('string'); });"
+      ] } }],
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/records/{{newId}}" }
+    },
+    {
+      "name": "09 POST missing title gives 400",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('400 with useful message', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().message).to.eql('Title is required.'); });"
+      ] } }],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/records",
+        "body": { "mode": "raw", "raw": "{\n  \"category\": \"Network\",\n  \"description\": \"No title was sent with this request.\",\n  \"status\": \"Pending\"\n}" }
+      }
+    },
+    {
+      "name": "10 POST invalid status gives 400",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('400 with useful message', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().message).to.eql('Status must be Pending, In progress or Completed.'); });"
+      ] } }],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/records",
+        "body": { "mode": "raw", "raw": "{\n  \"title\": \"Laptop battery swollen\",\n  \"category\": \"Hardware\",\n  \"description\": \"The battery is bulging under the keyboard.\",\n  \"status\": \"Done\"\n}" }
+      }
+    },
+    {
+      "name": "11 POST spaces only and wrong types gives 400",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "const r = pm.response.json();",
+        "pm.test('400 and lists every problem', () => { pm.response.to.have.status(400); pm.expect(r.message).to.eql('Title must have 3 to 80 characters.'); pm.expect(r.errors).to.include('Category must be text.'); });"
+      ] } }],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/records",
+        "body": { "mode": "raw", "raw": "{\n  \"title\": \"     \",\n  \"category\": 42,\n  \"description\": \"abc\",\n  \"status\": \"Pending\"\n}" }
+      }
+    },
+    {
+      "name": "12 No new rows were created by the bad requests",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Count is the same as before the tests', () => { pm.expect(pm.response.json().length).to.eql(Number(pm.collectionVariables.get('countBefore'))); });"
+      ] } }],
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/records" }
+    },
+    {
+      "name": "13 Invalid id (abc) gives 400",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('400 with JSON message', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().message).to.eql('Id must be a positive whole number.'); });"
+      ] } }],
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/records/abc" }
+    },
+    {
+      "name": "14 Invalid id (0) gives 400",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('400', () => pm.response.to.have.status(400));"
+      ] } }],
+      "request": { "method": "DELETE", "url": "{{baseUrl}}/api/records/0" }
+    },
+    {
+      "name": "15 Malformed JSON gives 400",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('400 with JSON message', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().message).to.eql('The request body is not valid JSON.'); });"
+      ] } }],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/records",
+        "body": { "mode": "raw", "raw": "{ \"title\": \"Broken JSON\", }" }
+      }
+    },
+    {
+      "name": "16 GET missing positive id gives 404",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('404', () => { pm.response.to.have.status(404); pm.expect(pm.response.json().message).to.include('not found'); });"
+      ] } }],
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/records/999999" }
+    },
+    {
+      "name": "17 PUT missing positive id gives 404 (does not create)",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('404', () => pm.response.to.have.status(404));"
+      ] } }],
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/records/999999",
+        "body": { "mode": "raw", "raw": "{\n  \"title\": \"Should not be created\",\n  \"category\": \"Network\",\n  \"description\": \"PUT must not create a missing record.\",\n  \"status\": \"Pending\"\n}" }
+      }
+    },
+    {
+      "name": "18 DELETE missing positive id gives 404",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('404', () => pm.response.to.have.status(404));"
+      ] } }],
+      "request": { "method": "DELETE", "url": "{{baseUrl}}/api/records/999999" }
+    },
+    {
+      "name": "19 Unknown route gives JSON 404",
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('404 with JSON message', () => { pm.response.to.have.status(404); pm.expect(pm.response.json().message).to.include('was not found'); });"
+      ] } }],
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/does-not-exist" }
+    }
+  ]
+}
